@@ -6,8 +6,7 @@ using System.Linq;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-
-//using Console = Colorful.Console;
+using Console = Colorful.Console;
 
 namespace ComposerUpdater
 {
@@ -25,7 +24,6 @@ namespace ComposerUpdater
                 return;
 
             string workingDir = Path.GetDirectoryName(Environment.CurrentDirectory);
-            // string gitPath = @"C:\Program Files\Git\bin\git.exe";
             string gitPath = @"C:\Program Files\Git\mingw64\bin\git.exe";
 
             Console.Write("Do you want to re-added all the submodules? [y/N]: ");
@@ -82,8 +80,6 @@ namespace ComposerUpdater
                 }
             }
 
-            // AnsiConsole = AnsiConsole.GetOutput();
-
             try
             {
                 const int slashLimit = 1;
@@ -108,23 +104,19 @@ namespace ComposerUpdater
                     string wDir = Path.GetDirectoryName(file);
                     CreateProcess(phpPath, $@"{composerPath} install --ansi", wDir, () =>
                     {
-                        // string wDir = process.StartInfo.WorkingDirectory.ToLowerInvariant();
                         string _wDir = wDir.ToLowerInvariant();
 
                         if (!_wDir.Contains(match))
                         {
-                            //Console.WriteLineFormatted("Skipped process at '{0}'",
-                            //    PromptColor, Color.Yellow, wDir);
-                            //Console.ResetColor();
+                            Console.WriteLineFormatted("Skipped process at '{0}'",
+                                PromptColor, Color.Yellow, wDir);
 
                             return true;
                         }
 
                         if (Regex.Matches(_wDir.Substring(_wDir.IndexOf(match)), @"\\").Count > slashLimit)
                         {
-                            //Console.WriteLineFormatted("Skipped sub-composer at '{0}'...", PromptColor, Color.White, wDir);
-                            //Console.ResetColor();
-
+                            Console.WriteLineFormatted("Skipped sub-composer at '{0}'...", PromptColor, Color.White, wDir);
                             return true;
                         }
 
@@ -154,7 +146,7 @@ namespace ComposerUpdater
         /// <param name="e">The <see cref="DataReceivedEventArgs"/> instance containing the event data.</param>
         private static void GitProcessOnOutputDataReceived(object sender, DataReceivedEventArgs e)
         {
-            Console.WriteLine(e.Data);
+            System.Console.WriteLine(e.Data);
         }
 
         /// <summary>
@@ -172,11 +164,11 @@ namespace ComposerUpdater
 
             if (displayRed)
             {
-                //Console.WriteLine(e.Data, Color.Red);
+                Console.WriteLine(e.Data, Color.Red);
             }
             else
             {
-                Console.WriteLine(e.Data);
+                System.Console.WriteLine(e.Data);
             }
         }
 
@@ -186,8 +178,7 @@ namespace ComposerUpdater
         /// <param name="info">The information.</param>
         private static void GetExecutingString(ProcessStartInfo info)
         {
-            //Console.WriteLineFormatted("Executing: '{0}' at '{1}'", PromptColor, Color.White, $"{info.FileName} {info.Arguments}", info.WorkingDirectory);
-            //Console.ResetColor();
+            Console.WriteLineFormatted("Executing: '{0}' at '{1}'", PromptColor, Color.White, $"{info.FileName} {info.Arguments}", info.WorkingDirectory);
         }
 
         /// <summary>
@@ -280,13 +271,13 @@ namespace ComposerUpdater
         {
             if (!File.Exists(path))
             {
-                //Console.Write($"{appName} not found (at '{path}')... Please, specify its path (file path) manually: ", Color.Red);
+                Console.Write($"{appName} not found (at '{path}')... Please, specify its path (file path) manually: ", Color.Red);
                 string appPath = Console.ReadLine();
 
                 if (!File.Exists(path))
                 {
-                    //Console.WriteLine($"Can't continue without the {appName} executable path, please retry restarting this app.",
-                    //    Color.Red);
+                    Console.WriteLine($"Can't continue without the {appName} executable path, please retry restarting this app.",
+                        Color.Red);
                     return true;
                 }
 
