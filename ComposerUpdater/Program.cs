@@ -1,11 +1,17 @@
-﻿using System;
+﻿// #define USE_CLIWRAP
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading;
+using CliWrap;
 using Microsoft.DotNet.Cli.Utils;
+using Win32;
 using Console = Colorful.Console;
 
 namespace ComposerUpdater
@@ -28,7 +34,11 @@ namespace ComposerUpdater
         /// <param name="args">The arguments.</param>
         private static void Main(string[] args)
         {
+            if (!EnableConsoleColors())
+                return;
+
             string workingDir = Path.GetDirectoryName(Environment.CurrentDirectory);
+            string gitPath = @"C:\Program Files\Git\bin\git.exe";
 
             Console.Write("Do you want to re-added all the submodules? [y/N]: ");
             if (Console.ReadLine().ToLowerInvariant() == "y")
@@ -45,8 +55,6 @@ namespace ComposerUpdater
                 }
                 else
                 {
-                    string gitPath = @"C:\Program Files\Git\bin\git.exe";
-
                     if (CheckForApp(ref gitPath, "Git"))
                         return;
 
@@ -88,6 +96,15 @@ namespace ComposerUpdater
 
             AnsiConsole = AnsiConsole.GetOutput();
 
+            //string colorme = @"\e[31mHello World\e[0m";
+            //AnsiConsole.WriteLine(colorme);
+
+            // Console.WriteLine("\u001b[31mHello World!\u001b[0m");
+            // AnsiConsole.WriteLine("\u001b[31mHello World!\u001b[0m");
+
+            CreateProcess(gitPath, @"log", workingDir);
+            Console.ReadLine();
+
             try
             {
                 const int slashLimit = 1;
@@ -109,21 +126,23 @@ namespace ComposerUpdater
 
                 foreach (var file in composerFiles)
                 {
-                    CreateProcess(phpPath, $@"{composerPath} install", Path.GetDirectoryName(file), process =>
+                    string wDir = Path.GetDirectoryName(file);
+                    CreateProcess(phpPath, $@"{composerPath} install", wDir, () =>
                     {
-                        string wDir = process.StartInfo.WorkingDirectory.ToLowerInvariant();
+                        // string wDir = process.StartInfo.WorkingDirectory.ToLowerInvariant();
+                        string _wDir = wDir.ToLowerInvariant();
 
-                        if (!wDir.Contains(match))
+                        if (!_wDir.Contains(match))
                         {
-                            Console.WriteLine($"Skipped process at '{process.StartInfo.WorkingDirectory}'",
+                            Console.WriteLine($"Skipped process at '{wDir}'",
                                 Color.Yellow);
 
                             return true;
                         }
 
-                        if (Regex.Matches(wDir.Substring(wDir.IndexOf(match)), @"\\").Count > slashLimit)
+                        if (Regex.Matches(_wDir.Substring(_wDir.IndexOf(match)), @"\\").Count > slashLimit)
                         {
-                            Console.WriteLine("Skipped sub-composer...");
+                            Console.WriteLine($"Skipped sub-composer at '{wDir}'...");
 
                             return true;
                         }
@@ -160,10 +179,9 @@ namespace ComposerUpdater
         /// <summary>
         /// Processes the error data received.
         /// </summary>
-        /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="DataReceivedEventArgs"/> instance containing the event data.</param>
         /// <param name="displayRed">if set to <c>true</c> [display red].</param>
-        private static void ProcessOnErrorDataReceived(object sender, DataReceivedEventArgs e, bool displayRed)
+        private static void ProcessOnErrorDataReceived(DataReceivedEventArgs e, bool displayRed)
         {
             if (string.IsNullOrEmpty(e.Data))
             {
@@ -175,10 +193,12 @@ namespace ComposerUpdater
                 Console.WriteLine(e.Data, Color.Red);
             else
             {
-                Action<string> consoleAction =
-                    AnsiConsole == null ? (Action<string>)(msg => Console.WriteLine(msg)) : msg => AnsiConsole.WriteLine(msg);
+                //Action<string> consoleAction =
+                //    AnsiConsole == null ? (Action<string>)Console.WriteLine : msg => AnsiConsole.WriteLine(msg);
 
-                consoleAction(e.Data);
+                //consoleAction(e.Data);
+
+                Console.WriteLine(e.Data);
             }
         }
 
@@ -189,6 +209,17 @@ namespace ComposerUpdater
         private static void GetExecutingString(ProcessStartInfo info)
         {
             Console.WriteLine($"Executing: {info.FileName} {info.Arguments} at '{info.WorkingDirectory}'");
+        }
+
+        /// <summary>
+        /// Creates the process.
+        /// </summary>
+        /// <param name="fileName">Name of the file.</param>
+        /// <param name="arguments">The arguments.</param>
+        /// <param name="workingDir">The working dir.</param>
+        private static void CreateProcess(string fileName, string arguments, string workingDir)
+        {
+            CreateProcess(fileName, arguments, workingDir, null);
         }
 
         /// <summary>
@@ -219,7 +250,7 @@ namespace ComposerUpdater
         /// workingDir
         /// </exception>
         private static void CreateProcess(string fileName, string arguments, string workingDir,
-            Func<Process, bool> continueFunc, DataReceivedEventHandler outputHandler)
+            Func<bool> continueFunc, DataReceivedEventHandler outputHandler)
         {
             if (string.IsNullOrEmpty(fileName))
                 throw new ArgumentNullException(nameof(fileName));
@@ -229,6 +260,8 @@ namespace ComposerUpdater
 
             if (string.IsNullOrEmpty(workingDir))
                 throw new ArgumentNullException(nameof(workingDir));
+
+#if !USE_CLIWRAP
 
             using (var process =
                 new Process
@@ -244,20 +277,38 @@ namespace ComposerUpdater
                         }
                 })
             {
-                if (continueFunc?.Invoke(process) == true)
+                if (continueFunc?.Invoke() == true)
                     return;
 
                 GetExecutingString(process.StartInfo);
 
-                // process.OutputDataReceived += outputHandler ?? ((sender, e) => ProcessOnErrorDataReceived(sender, e, false));
-                process.ErrorDataReceived += (sender, e) => ProcessOnErrorDataReceived(sender, e, outputHandler != null);
+                //process.OutputDataReceived += outputHandler ?? ((sender, e) => ProcessOnErrorDataReceived(e, false));
+                //process.ErrorDataReceived += (sender, e) => ProcessOnErrorDataReceived(e, outputHandler != null);
                 process.Start();
 
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
+                // TODO: Test
+                Thread.Sleep(1000);
+                Api.Test(process);
+
+                //process.BeginOutputReadLine();
+                //process.BeginErrorReadLine();
 
                 process.WaitForExit();
             }
+#else
+
+            if (continueFunc?.Invoke() == true)
+                return;
+
+            // var cli =
+            Cli.Wrap(fileName)
+                .SetArguments(arguments)
+                .SetWorkingDirectory(workingDir)
+                .SetStandardOutputCallback(l => Console.WriteLine($"StdOut> {l}")) // triggered on every line in stdout
+                .SetStandardErrorCallback(l => Console.WriteLine($"StdErr> {l}")) // triggered on every line in stderr
+                .Execute();
+
+#endif
         }
 
         /// <summary>
@@ -285,5 +336,46 @@ namespace ComposerUpdater
 
             return false;
         }
+
+        #region "Interoperability"
+
+        private const int STD_OUTPUT_HANDLE = -11;
+        private const uint ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004;
+        private const uint DISABLE_NEWLINE_AUTO_RETURN = 0x0008;
+
+        [DllImport("kernel32.dll")]
+        private static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+
+        [DllImport("kernel32.dll")]
+        private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GetStdHandle(int nStdHandle);
+
+        [DllImport("kernel32.dll")]
+        public static extern uint GetLastError();
+
+        private static bool EnableConsoleColors()
+        {
+            var iStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+            if (!GetConsoleMode(iStdOut, out uint outConsoleMode))
+            {
+                Console.WriteLine("failed to get output console mode");
+                Console.ReadKey();
+                return false;
+            }
+
+            outConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
+            if (!SetConsoleMode(iStdOut, outConsoleMode))
+            {
+                Console.WriteLine($"failed to set output console mode, error code: {GetLastError()}");
+                Console.ReadKey();
+                return false;
+            }
+
+            return true;
+        }
+
+        #endregion "Interoperability"
     }
 }
