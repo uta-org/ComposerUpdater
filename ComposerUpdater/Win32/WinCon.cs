@@ -303,6 +303,7 @@ namespace Win32
                 for (int h = 0; h < height; h++)
                 {
                     StringBuilder sb = new StringBuilder();
+
                     for (int w = 0; w < width; w++)
                     {
                         CHAR_INFO ci = (CHAR_INFO)Marshal.PtrToStructure(ptr, typeof(CHAR_INFO));
@@ -310,6 +311,7 @@ namespace Win32
                         sb.Append(chars[0]);
                         ptr += Marshal.SizeOf(typeof(CHAR_INFO));
                     }
+
                     yield return sb.ToString();
                 }
             }
@@ -340,7 +342,7 @@ namespace Win32
                 "white"
             };
 
-            var _consoleH = new SafeHandleExt(hOutput);
+            var _consoleH = new SafeFileHandle(hOutput, false);
             short _widthConsole = size.X;
 
             // _rowsList.Length
@@ -356,8 +358,8 @@ namespace Win32
 
                 if (!readAttr)
                 {
-                    if (!_consoleH.Release())
-                        throw new Exception();
+                    //if (!_consoleH.Release())
+                    //    throw new Exception();
 
                     return false;
                 }
@@ -373,32 +375,33 @@ namespace Win32
                 }
             }
 
-            if (!_consoleH.Release())
-                throw new Exception();
+            //if (!_consoleH.Release())
+            //    throw new Exception();
 
             return true;
         }
 
         public static void Test(Process proc)
         {
-            bool resultFree = FreeConsole();
+            //bool resultFree = FreeConsole();
 
-            if (resultFree)
-            {
-                Console.WriteLine("FreeConsole: {0}", true);
-            }
-            else
-            {
-                Console.WriteLine("FreeConsole: {0}", false);
-            }
+            //if (resultFree)
+            //{
+            //    Console.WriteLine($"FreeConsole: {true}");
+            //}
+            //else
+            //{
+            //    Console.WriteLine($"FreeConsole: {false}");
+            //}
 
-            Console.WriteLine("Process ID: {0}", Convert.ToUInt32(proc.Id));
+            Console.WriteLine($"Process ID: {Convert.ToUInt32(proc.Id)}");
 
             bool result = AttachConsole(Convert.ToUInt32(proc.Id));
 
-            Console.WriteLine("AttachConsole: {0}", result);
+            Console.WriteLine($"AttachConsole: {result}");
 
-            SafeHandleExt _consoleH = new SafeHandleExt(GetStdHandle(StdHandleNumber.STD_OUTPUT_HANDLE));
+            var handle = GetStdHandle(StdHandleNumber.STD_OUTPUT_HANDLE);
+            var _consoleH = new SafeFileHandle(handle, false);
 
             CONSOLE_SCREEN_BUFFER_INFO _bufferInfo;
 
@@ -406,17 +409,17 @@ namespace Win32
 
             if (getInfo)
             {
-                Console.WriteLine("GetConsoleScreenBufferInfo: {0}x{1}", _bufferInfo.dwSize.X, _bufferInfo.dwSize.Y);
+                Console.WriteLine($"GetConsoleScreenBufferInfo: {_bufferInfo.dwSize.X}x{_bufferInfo.dwSize.Y}");
             }
             else
             {
-                Console.WriteLine("GetConsoleScreenBufferInfo: {0}", false);
+                Console.WriteLine($"GetConsoleScreenBufferInfo: {false}");
             }
 
             short _widthConsole = _bufferInfo.dwSize.X;
             short _heightConsole = _bufferInfo.dwSize.Y;
 
-            IEnumerable<string> rows = ReadFromBuffer(_consoleH.DangerousGetHandle(), 0, 0, _widthConsole, _heightConsole);
+            IEnumerable<string> rows = ReadFromBuffer(handle, 0, 0, _widthConsole, _heightConsole);
 
             foreach (string row in rows)
             {
@@ -434,15 +437,15 @@ namespace Win32
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         [SuppressUnmanagedCodeSecurity]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool CloseHandle(IntPtr hObject);
+        public static extern bool CloseHandle(HANDLE hObject);
 
         private SafeHandleExt()
-            : base(IntPtr.Zero, true)
+            : base(HANDLE.Zero, true)
         { }
 
         // 0 is an Invalid Handle
-        public SafeHandleExt(IntPtr handle)
-            : base(IntPtr.Zero, true)
+        public SafeHandleExt(HANDLE handle)
+            : base(HANDLE.Zero, true)
         {
             SetHandle(handle);
         }
@@ -450,13 +453,13 @@ namespace Win32
         public static SafeHandleExt InvalidHandle
         {
             [SecurityCritical]
-            get { return new SafeHandleExt(IntPtr.Zero); }
+            get => new SafeHandleExt(HANDLE.Zero);
         }
 
         public override bool IsInvalid
         {
             [SecurityCritical]
-            get { return handle == IntPtr.Zero || handle == new IntPtr(-1); }
+            get => handle == HANDLE.Zero || handle == new HANDLE(-1);
         }
 
         [SecurityCritical]

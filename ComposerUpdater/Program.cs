@@ -1,4 +1,5 @@
 ﻿// #define USE_CLIWRAP
+// #define DEBUG_BYTES
 
 using System;
 using System.Collections.Generic;
@@ -7,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using CliWrap;
@@ -38,7 +40,8 @@ namespace ComposerUpdater
                 return;
 
             string workingDir = Path.GetDirectoryName(Environment.CurrentDirectory);
-            string gitPath = @"C:\Program Files\Git\bin\git.exe";
+            // string gitPath = @"C:\Program Files\Git\bin\git.exe";
+            string gitPath = @"C:\Program Files\Git\mingw64\bin\git.exe";
 
             Console.Write("Do you want to re-added all the submodules? [y/N]: ");
             if (Console.ReadLine().ToLowerInvariant() == "y")
@@ -102,8 +105,8 @@ namespace ComposerUpdater
             // Console.WriteLine("\u001b[31mHello World!\u001b[0m");
             // AnsiConsole.WriteLine("\u001b[31mHello World!\u001b[0m");
 
-            CreateProcess(gitPath, @"log", workingDir);
-            Console.ReadLine();
+            //CreateProcess(gitPath, @"log -R --decorate --color", workingDir);
+            //Console.ReadLine();
 
             try
             {
@@ -127,22 +130,22 @@ namespace ComposerUpdater
                 foreach (var file in composerFiles)
                 {
                     string wDir = Path.GetDirectoryName(file);
-                    CreateProcess(phpPath, $@"{composerPath} install", wDir, () =>
+                    CreateProcess(phpPath, $@"{composerPath} install --ansi", wDir, () =>
                     {
                         // string wDir = process.StartInfo.WorkingDirectory.ToLowerInvariant();
                         string _wDir = wDir.ToLowerInvariant();
 
                         if (!_wDir.Contains(match))
                         {
-                            Console.WriteLine($"Skipped process at '{wDir}'",
-                                Color.Yellow);
+                            Console.WriteLineFormatted("Skipped process at '{0}'",
+                                Color.Goldenrod, Color.Yellow, wDir);
 
                             return true;
                         }
 
                         if (Regex.Matches(_wDir.Substring(_wDir.IndexOf(match)), @"\\").Count > slashLimit)
                         {
-                            Console.WriteLine($"Skipped sub-composer at '{wDir}'...");
+                            Console.WriteLineFormatted("Skipped sub-composer at '{0}'...", Color.Goldenrod, Color.White, wDir);
 
                             return true;
                         }
@@ -193,12 +196,12 @@ namespace ComposerUpdater
                 Console.WriteLine(e.Data, Color.Red);
             else
             {
-                //Action<string> consoleAction =
-                //    AnsiConsole == null ? (Action<string>)Console.WriteLine : msg => AnsiConsole.WriteLine(msg);
+                Action<string> consoleAction =
+                    AnsiConsole == null ? (Action<string>)Console.WriteLine : msg => AnsiConsole.WriteLine(msg);
 
-                //consoleAction(e.Data);
+                consoleAction(e.Data);
 
-                Console.WriteLine(e.Data);
+                // Console.WriteLine(e.Data);
             }
         }
 
@@ -208,7 +211,7 @@ namespace ComposerUpdater
         /// <param name="info">The information.</param>
         private static void GetExecutingString(ProcessStartInfo info)
         {
-            Console.WriteLine($"Executing: {info.FileName} {info.Arguments} at '{info.WorkingDirectory}'");
+            Console.WriteLineFormatted("Executing: '{0}' at '{1}'", Color.Goldenrod, Color.White, $"{info.FileName} {info.Arguments}", info.WorkingDirectory);
         }
 
         /// <summary>
@@ -273,7 +276,9 @@ namespace ComposerUpdater
                             UseShellExecute = false,
                             CreateNoWindow = true,
                             RedirectStandardOutput = true,
-                            RedirectStandardError = true
+                            RedirectStandardError = true,
+                            //StandardErrorEncoding = Encoding.ASCII,
+                            //StandardOutputEncoding = Encoding.ASCII
                         }
                 })
             {
@@ -282,22 +287,33 @@ namespace ComposerUpdater
 
                 GetExecutingString(process.StartInfo);
 
-                //process.OutputDataReceived += outputHandler ?? ((sender, e) => ProcessOnErrorDataReceived(e, false));
-                //process.ErrorDataReceived += (sender, e) => ProcessOnErrorDataReceived(e, outputHandler != null);
+                process.OutputDataReceived += outputHandler ?? ((sender, e) => ProcessOnErrorDataReceived(e, false));
+                process.ErrorDataReceived += (sender, e) => ProcessOnErrorDataReceived(e, outputHandler != null);
                 process.Start();
 
-                // TODO: Test
-                Thread.Sleep(1000);
-                Api.Test(process);
+                // Console.WriteLine($"Enconding: {process.StartInfo.StandardOutputEncoding?.EncodingName}");
 
-                //process.BeginOutputReadLine();
-                //process.BeginErrorReadLine();
+                // TODO: Test
+                //Thread.Sleep(1000);
+                //Api.Test(process);
+
+#if !DEBUG_BYTES
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+#else
+
+                var bytesOut = ReadFully(process.StandardOutput.BaseStream);
+                var bytesError = ReadFully(process.StandardError.BaseStream);
+
+                // string outJoin = string.Join(" ", bytesOut.Select(b => b.ToString()));
+                string hexString = ToHex(bytesOut);
+#endif
 
                 process.WaitForExit();
             }
 #else
 
-            if (continueFunc?.Invoke() == true)
+                if (continueFunc?.Invoke() == true)
                 return;
 
             // var cli =
@@ -309,6 +325,33 @@ namespace ComposerUpdater
                 .Execute();
 
 #endif
+        }
+
+        public static byte[] ReadFully(Stream input)
+        {
+            byte[] buffer = new byte[16 * 1024];
+            using (MemoryStream ms = new MemoryStream())
+            {
+                int read;
+                while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    ms.Write(buffer, 0, read);
+                }
+                return ms.ToArray();
+            }
+        }
+
+        public static string ToHex(byte[] ba)
+        {
+            StringBuilder hex = new StringBuilder(ba.Length * 2);
+
+            foreach (byte b in ba)
+            {
+                hex.AppendFormat("{0:x2}", b);
+                hex.Append(" ");
+            }
+
+            return hex.ToString().ToUpperInvariant();
         }
 
         /// <summary>
