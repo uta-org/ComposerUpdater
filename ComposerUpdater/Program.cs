@@ -67,29 +67,6 @@ namespace ComposerUpdater
                                        urlString = parts[1].Replace(string.Format(literalFormat, urlStart),
                                     string.Empty);
 
-                                //using (var gitProcess = new Process()
-                                //{
-                                //    StartInfo =
-                                //        new ProcessStartInfo(gitPath, $@"submodule add {urlString} ""{pathString}""")
-                                //        {
-                                //            WorkingDirectory = workingDir,
-                                //            UseShellExecute = false,
-                                //            CreateNoWindow = true,
-                                //            RedirectStandardOutput = true,
-                                //            RedirectStandardError = true
-                                //        }
-                                //})
-                                //{
-                                //    gitProcess.OutputDataReceived += GitProcessOnOutputDataReceived;
-                                //    gitProcess.ErrorDataReceived += ProcessOnErrorDataReceived;
-                                //    gitProcess.Start();
-
-                                //    gitProcess.BeginOutputReadLine();
-                                //    gitProcess.BeginErrorReadLine();
-
-                                //    gitProcess.WaitForExit();
-                                //}
-
                                 CreateProcess(gitPath, $@"submodule add {urlString} ""{pathString}""", workingDir, null, GitProcessOnOutputDataReceived);
 
                                 // Console.WriteLine($"Adding submodule from URL --> '{urlString}' at path --> '{pathString}'");
@@ -118,38 +95,6 @@ namespace ComposerUpdater
 
                 foreach (var file in composerFiles)
                 {
-                    //using (var process =
-                    //    new Process
-                    //    {
-                    //        StartInfo =
-                    //        new ProcessStartInfo("cmd", $@"/c ""{composerPath}"" install")
-                    //        {
-                    //            WorkingDirectory = Path.GetDirectoryName(file),
-                    //            UseShellExecute = false,
-                    //            CreateNoWindow = true,
-                    //            RedirectStandardOutput = true,
-                    //            RedirectStandardError = true
-                    //        }
-                    //    })
-                    //{
-                    //    if (!process.StartInfo.WorkingDirectory.ToLowerInvariant().Contains(match))
-                    //    {
-                    //        Console.WriteLine($"Skipped process at '{process.StartInfo.WorkingDirectory}'", Color.Yellow);
-                    //        continue;
-                    //    }
-
-                    //    GetExecutingString(process.StartInfo);
-
-                    //    process.OutputDataReceived += ProcessOnOutputDataReceived;
-                    //    process.ErrorDataReceived += ProcessOnErrorDataReceived;
-                    //    process.Start();
-
-                    //    process.BeginOutputReadLine();
-                    //    process.BeginErrorReadLine();
-
-                    //    process.WaitForExit();
-                    //}
-
                     CreateProcess("cmd", $@"/c ""{composerPath}"" install", Path.GetDirectoryName(file), process =>
                     {
                         if (!process.StartInfo.WorkingDirectory.ToLowerInvariant().Contains(match))
