@@ -1,34 +1,19 @@
-﻿// #define USE_CLIWRAP
-// #define DEBUG_BYTES
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Drawing;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using CliWrap;
-using Microsoft.DotNet.Cli.Utils;
-using Win32;
-using Console = Colorful.Console;
+
+//using Console = Colorful.Console;
 
 namespace ComposerUpdater
 {
     internal class Program
     {
-        /// <summary>
-        /// Gets or sets the ANSI console.
-        /// </summary>
-        /// <value>
-        /// The ANSI console.
-        /// </value>
-        private static AnsiConsole AnsiConsole { get; set; }
-
-        //private static string GitPath { get; set; } = @"C:\Program Files\Git\bin\git.exe";
+        private static Color PromptColor => Color.DodgerBlue;
 
         /// <summary>
         /// Defines the entry point of the application.
@@ -97,16 +82,7 @@ namespace ComposerUpdater
                 }
             }
 
-            AnsiConsole = AnsiConsole.GetOutput();
-
-            //string colorme = @"\e[31mHello World\e[0m";
-            //AnsiConsole.WriteLine(colorme);
-
-            // Console.WriteLine("\u001b[31mHello World!\u001b[0m");
-            // AnsiConsole.WriteLine("\u001b[31mHello World!\u001b[0m");
-
-            //CreateProcess(gitPath, @"log -R --decorate --color", workingDir);
-            //Console.ReadLine();
+            // AnsiConsole = AnsiConsole.GetOutput();
 
             try
             {
@@ -137,15 +113,17 @@ namespace ComposerUpdater
 
                         if (!_wDir.Contains(match))
                         {
-                            Console.WriteLineFormatted("Skipped process at '{0}'",
-                                Color.Goldenrod, Color.Yellow, wDir);
+                            //Console.WriteLineFormatted("Skipped process at '{0}'",
+                            //    PromptColor, Color.Yellow, wDir);
+                            //Console.ResetColor();
 
                             return true;
                         }
 
                         if (Regex.Matches(_wDir.Substring(_wDir.IndexOf(match)), @"\\").Count > slashLimit)
                         {
-                            Console.WriteLineFormatted("Skipped sub-composer at '{0}'...", Color.Goldenrod, Color.White, wDir);
+                            //Console.WriteLineFormatted("Skipped sub-composer at '{0}'...", PromptColor, Color.White, wDir);
+                            //Console.ResetColor();
 
                             return true;
                         }
@@ -156,7 +134,7 @@ namespace ComposerUpdater
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex, Color.Red);
+                //Console.WriteLine(ex, Color.Red);
 
                 Console.WriteLine("Press any key to exit...");
                 Console.ReadLine();
@@ -193,15 +171,12 @@ namespace ComposerUpdater
             }
 
             if (displayRed)
-                Console.WriteLine(e.Data, Color.Red);
+            {
+                //Console.WriteLine(e.Data, Color.Red);
+            }
             else
             {
-                Action<string> consoleAction =
-                    AnsiConsole == null ? (Action<string>)Console.WriteLine : msg => AnsiConsole.WriteLine(msg);
-
-                consoleAction(e.Data);
-
-                // Console.WriteLine(e.Data);
+                Console.WriteLine(e.Data);
             }
         }
 
@@ -211,7 +186,8 @@ namespace ComposerUpdater
         /// <param name="info">The information.</param>
         private static void GetExecutingString(ProcessStartInfo info)
         {
-            Console.WriteLineFormatted("Executing: '{0}' at '{1}'", Color.Goldenrod, Color.White, $"{info.FileName} {info.Arguments}", info.WorkingDirectory);
+            //Console.WriteLineFormatted("Executing: '{0}' at '{1}'", PromptColor, Color.White, $"{info.FileName} {info.Arguments}", info.WorkingDirectory);
+            //Console.ResetColor();
         }
 
         /// <summary>
@@ -264,8 +240,6 @@ namespace ComposerUpdater
             if (string.IsNullOrEmpty(workingDir))
                 throw new ArgumentNullException(nameof(workingDir));
 
-#if !USE_CLIWRAP
-
             using (var process =
                 new Process
                 {
@@ -276,9 +250,7 @@ namespace ComposerUpdater
                             UseShellExecute = false,
                             CreateNoWindow = true,
                             RedirectStandardOutput = true,
-                            RedirectStandardError = true,
-                            //StandardErrorEncoding = Encoding.ASCII,
-                            //StandardOutputEncoding = Encoding.ASCII
+                            RedirectStandardError = true
                         }
                 })
             {
@@ -291,67 +263,11 @@ namespace ComposerUpdater
                 process.ErrorDataReceived += (sender, e) => ProcessOnErrorDataReceived(e, outputHandler != null);
                 process.Start();
 
-                // Console.WriteLine($"Enconding: {process.StartInfo.StandardOutputEncoding?.EncodingName}");
-
-                // TODO: Test
-                //Thread.Sleep(1000);
-                //Api.Test(process);
-
-#if !DEBUG_BYTES
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
-#else
-
-                var bytesOut = ReadFully(process.StandardOutput.BaseStream);
-                var bytesError = ReadFully(process.StandardError.BaseStream);
-
-                // string outJoin = string.Join(" ", bytesOut.Select(b => b.ToString()));
-                string hexString = ToHex(bytesOut);
-#endif
 
                 process.WaitForExit();
             }
-#else
-
-                if (continueFunc?.Invoke() == true)
-                return;
-
-            // var cli =
-            Cli.Wrap(fileName)
-                .SetArguments(arguments)
-                .SetWorkingDirectory(workingDir)
-                .SetStandardOutputCallback(l => Console.WriteLine($"StdOut> {l}")) // triggered on every line in stdout
-                .SetStandardErrorCallback(l => Console.WriteLine($"StdErr> {l}")) // triggered on every line in stderr
-                .Execute();
-
-#endif
-        }
-
-        public static byte[] ReadFully(Stream input)
-        {
-            byte[] buffer = new byte[16 * 1024];
-            using (MemoryStream ms = new MemoryStream())
-            {
-                int read;
-                while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    ms.Write(buffer, 0, read);
-                }
-                return ms.ToArray();
-            }
-        }
-
-        public static string ToHex(byte[] ba)
-        {
-            StringBuilder hex = new StringBuilder(ba.Length * 2);
-
-            foreach (byte b in ba)
-            {
-                hex.AppendFormat("{0:x2}", b);
-                hex.Append(" ");
-            }
-
-            return hex.ToString().ToUpperInvariant();
         }
 
         /// <summary>
@@ -364,13 +280,13 @@ namespace ComposerUpdater
         {
             if (!File.Exists(path))
             {
-                Console.Write($"{appName} not found (at '{path}')... Please, specify its path (file path) manually: ", Color.Red);
+                //Console.Write($"{appName} not found (at '{path}')... Please, specify its path (file path) manually: ", Color.Red);
                 string appPath = Console.ReadLine();
 
                 if (!File.Exists(path))
                 {
-                    Console.WriteLine($"Can't continue without the {appName} executable path, please retry restarting this app.",
-                        Color.Red);
+                    //Console.WriteLine($"Can't continue without the {appName} executable path, please retry restarting this app.",
+                    //    Color.Red);
                     return true;
                 }
 
@@ -382,41 +298,21 @@ namespace ComposerUpdater
 
         #region "Interoperability"
 
-        private const int STD_OUTPUT_HANDLE = -11;
-        private const uint ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004;
-        private const uint DISABLE_NEWLINE_AUTO_RETURN = 0x0008;
-
-        [DllImport("kernel32.dll")]
-        private static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
-
-        [DllImport("kernel32.dll")]
-        private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool SetConsoleMode(IntPtr hConsoleHandle, int mode);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern IntPtr GetStdHandle(int nStdHandle);
+        public static extern bool GetConsoleMode(IntPtr handle, out int mode);
 
-        [DllImport("kernel32.dll")]
-        public static extern uint GetLastError();
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern IntPtr GetStdHandle(int handle);
 
-        private static bool EnableConsoleColors()
+        public static bool EnableConsoleColors()
         {
-            var iStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-            if (!GetConsoleMode(iStdOut, out uint outConsoleMode))
-            {
-                Console.WriteLine("failed to get output console mode");
-                Console.ReadKey();
-                return false;
-            }
-
-            outConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
-            if (!SetConsoleMode(iStdOut, outConsoleMode))
-            {
-                Console.WriteLine($"failed to set output console mode, error code: {GetLastError()}");
-                Console.ReadKey();
-                return false;
-            }
-
-            return true;
+            var handle = GetStdHandle(-11);
+            int mode;
+            return GetConsoleMode(handle, out mode) &&
+                SetConsoleMode(handle, mode | 0x4);
         }
 
         #endregion "Interoperability"
