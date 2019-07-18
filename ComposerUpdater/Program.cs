@@ -80,6 +80,13 @@ namespace ComposerUpdater
                 }
             }
 
+            Console.Write("Do you want to update all the composer modules? [y/N]: ");
+            if (Console.ReadLine().ToLowerInvariant() == "n")
+            {
+                AnyKeyToExit();
+                return;
+            }
+
             try
             {
                 const int slashLimit = 1;
@@ -128,13 +135,20 @@ namespace ComposerUpdater
             {
                 //Console.WriteLine(ex, Color.Red);
 
-                Console.WriteLine("Press any key to exit...");
-                Console.ReadLine();
+                AnyKeyToExit();
                 return;
             }
 
             Console.WriteLine("All composer packages installed succesfully!", Color.Lime);
 
+            AnyKeyToExit();
+        }
+
+        /// <summary>
+        /// Press any the key to exit.
+        /// </summary>
+        private static void AnyKeyToExit()
+        {
             Console.WriteLine("Press any key to exit...");
             Console.ReadLine();
         }
